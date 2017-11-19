@@ -137,6 +137,11 @@ impl<'a> Grid<'a> {
         ElemHandle(BR_IDX)
     }
 
+    pub fn add_elem(&mut self, elem: Box<Element<'a>>, x: usize, y: usize) -> ElemHandle {
+        self.elems.push(ElemHolder::new(elem, x, y));
+        ElemHandle(self.elems.len() - 1)
+    }
+
     pub fn connect_up_down(&mut self, up: ElemHandle, down: ElemHandle) -> Result<(), HandleOutOfBounds> {
         let upper: *mut ElemHolder<'a> = self.elems.get(up.0).ok_or(HandleOutOfBounds(up))? as *const _ as *mut _;
         let lower: *mut ElemHolder<'a> = self.elems.get(down.0).ok_or(HandleOutOfBounds(down))? as *const _ as *mut _;
