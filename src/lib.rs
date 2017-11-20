@@ -100,8 +100,8 @@ const TL_IDX: usize = 0; // Index of top left element
 const BR_IDX: usize = 1; // Index of bottom right element
 
 impl<'a> Grid<'a> {
-    pub fn with_capacity(tl: Box<Element<'a>>, tl_x: usize, tl_y: usize,
-                         br: Box<Element<'a>>, br_x: usize, br_y: usize,
+    pub fn with_capacity(tl: Box<Element<'a> + 'a>, tl_x: usize, tl_y: usize,
+                         br: Box<Element<'a> + 'a>, br_x: usize, br_y: usize,
                          cap: usize)
     -> Grid<'a> {
         let mut grid = Grid {
@@ -137,7 +137,7 @@ impl<'a> Grid<'a> {
         ElemHandle(BR_IDX)
     }
 
-    pub fn add_elem(&mut self, elem: Box<Element<'a>>, x: usize, y: usize) -> ElemHandle {
+    pub fn add_elem(&mut self, elem: Box<Element<'a> + 'a>, x: usize, y: usize) -> ElemHandle {
         self.elems.push(ElemHolder::new(elem, x, y));
         ElemHandle(self.elems.len() - 1)
     }
@@ -196,7 +196,7 @@ impl Display for HandleOutOfBounds {
 pub struct ElemHandle(usize);
 
 pub struct ElemHolder<'a> {
-    elem: Box<Element<'a>>,
+    elem: Box<Element<'a> + 'a>,
     x: usize,
     y: usize,
     up: isize,
@@ -206,7 +206,7 @@ pub struct ElemHolder<'a> {
 }
 
 impl<'a> ElemHolder<'a> {
-    pub fn new(elem: Box<Element<'a>>, x: usize, y: usize) -> ElemHolder<'a> {
+    pub fn new(elem: Box<Element<'a> + 'a>, x: usize, y: usize) -> ElemHolder<'a> {
         ElemHolder {
             elem, x, y,
             up: -1,
@@ -321,12 +321,44 @@ impl<'a> Element<'a> for Grid<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    struct Counter<'a> {
+        count: &'a mut u32,
+        selected: bool,
+        updated: bool,
+    }
+
+    impl<'a> Element<'a> for Counter<'a> {
+        fn select(&mut self) {
+            *self.count += 2;
+            self.selected = true;
+            self.updated = true
+        }
+
+        fn unselect(&mut self) {
+            *self.count -= 1;
+            self.selected = false;
+            self.updated = true
+        }
+
+        fn draw(&self, canvas: &mut Canvas, x: usize, y: usize) {
+            if self.updated {
+                canvas.text(&self.count.to_string(), x, y, TextStyles::new().inverse(self.selected))
+            }
+        }
+
+        fn advance(&mut self) {
+            self.updated = false
+        }
+    }
+
     #[test]
     fn it_works() {
+        let mut counter = 1000;
+        let count: &mut u32 = &mut counter;
         let mut grid = Grid::with_capacity(Box::new(Text::new("foo")), 1, 1, Box::new(Text::new("baz")), 3, 3, 10);
         let top = grid.top_left();
         let bottom = grid.bottom_right();
-        let middle = grid.add_elem(Box::new(Text::new("bar")), 2, 2);
+        let middle = grid.add_elem(Box::new(Counter { count, selected: false, updated: true }), 2, 2);
         grid.connect_up_down(top, middle).unwrap();
         grid.connect_up_down(middle, bottom).unwrap();
         grid.connect_left_right(top, middle).unwrap();
