@@ -328,7 +328,6 @@ mod tests {
         let bottom = grid.bottom_right();
         grid.connect_up_down(top, bottom).unwrap();
         grid.connect_left_right(top, bottom).unwrap();
-        println!("{}", grid.focus as usize);
         let mut canvas = Canvas::new(10, 10, ' ');
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
