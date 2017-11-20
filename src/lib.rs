@@ -323,11 +323,14 @@ mod tests {
     use super::*;
     #[test]
     fn it_works() {
-        let mut grid = Grid::with_capacity(Box::new(Text::new("foo")), 2, 2, Box::new(Text::new("bar")), 3, 3, 10);
+        let mut grid = Grid::with_capacity(Box::new(Text::new("foo")), 1, 1, Box::new(Text::new("baz")), 3, 3, 10);
         let top = grid.top_left();
         let bottom = grid.bottom_right();
-        grid.connect_up_down(top, bottom).unwrap();
-        grid.connect_left_right(top, bottom).unwrap();
+        let middle = grid.add_elem(Box::new(Text::new("bar")), 2, 2);
+        grid.connect_up_down(top, middle).unwrap();
+        grid.connect_up_down(middle, bottom).unwrap();
+        grid.connect_left_right(top, middle).unwrap();
+        grid.connect_left_right(middle, bottom).unwrap();
         let mut canvas = Canvas::new(10, 10, ' ');
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
@@ -336,10 +339,13 @@ mod tests {
         grid.move_down();
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
-        grid.move_left();
+        grid.move_down();
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
         grid.move_left();
+        grid.draw_advance(&mut canvas, 0, 0);
+        print!("{}", canvas);
+        grid.move_right();
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
     }
