@@ -227,15 +227,21 @@ impl<'a> Element<'a> for Grid<'a> {
         self.focus_mut().elem.unselect()
     }
 
+    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize) {
+        for &ElemHolder { ref elem, x: elem_x, y: elem_y, .. } in &self.elems {
+            elem.draw(canvas, x + elem_x, y + elem_y)
+        }
+    }
+
     fn advance(&mut self) {
         for &mut ElemHolder { ref mut elem, .. } in &mut self.elems {
             elem.advance()
         }
     }
 
-    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize) {
-        for &ElemHolder { ref elem, x: elem_x, y: elem_y, .. } in &self.elems {
-            elem.draw(canvas, x + elem_x, y + elem_y)
+    fn draw_advance(&mut self, canvas: &mut Canvas, x: usize, y: usize) {
+        for &mut ElemHolder { ref mut elem, x: elem_x, y: elem_y, .. } in &mut self.elems {
+            elem.draw_advance(canvas, x + elem_x, y + elem_y)
         }
     }
 
@@ -317,23 +323,25 @@ mod tests {
     use super::*;
     #[test]
     fn it_works() {
-        let mut grid = Grid::with_capacity(Box::new(Text::new("foo")), 0, 0, Box::new(Text::new("bar")), 5, 5, 10);
+        let mut grid = Grid::with_capacity(Box::new(Text::new("foo")), 2, 2, Box::new(Text::new("bar")), 3, 3, 10);
         let top = grid.top_left();
         let bottom = grid.bottom_right();
         grid.connect_up_down(top, bottom).unwrap();
         grid.connect_left_right(top, bottom).unwrap();
         println!("{}", grid.focus as usize);
         let mut canvas = Canvas::new(10, 10, ' ');
-        grid.draw(&mut canvas, 0, 0);
+        grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
-        println!("{}", grid.move_down());
-        grid.draw(&mut canvas, 0, 0);
+        grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
-        println!("{}", grid.move_up());
-        grid.draw(&mut canvas, 0, 0);
+        grid.move_down();
+        grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
-        println!("{}", grid.move_right());
-        grid.draw(&mut canvas, 0, 0);
+        grid.move_left();
+        grid.draw_advance(&mut canvas, 0, 0);
+        print!("{}", canvas);
+        grid.move_left();
+        grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
     }
 }
