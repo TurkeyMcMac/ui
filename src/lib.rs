@@ -57,6 +57,10 @@ pub trait Element<'a> {
     fn enter_left(&mut self) {
         self.select()
     }
+
+    fn alert(&mut self) -> Option<&[ElemHandle]> {
+        None
+    }
 }
 
 pub struct Text<'a> {
@@ -214,8 +218,15 @@ impl<'a> Grid<'a> {
         }
     }
 
-    fn alert_all(&mut self, _targets: &[ElemHandle]) {
-        // TODO: Implement
+    fn alert_all(&mut self, targets: &[ElemHandle]) {
+        for t in targets {
+            if let Some(targets) = unsafe { // TODO: Do this a better way
+                (&mut *(&self.elems as *const _ as *mut Vec<ElemHolder<'a>>))
+            }.get_mut(t.0).and_then(|e| e.elem.alert())
+            {
+                self.alert_all(targets);
+            }
+        }
     }
 }
 
