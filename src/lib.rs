@@ -4,6 +4,20 @@ use std::fmt::{self, Debug, Display, Formatter};
 mod canvas;
 use canvas::{Canvas, TextStyles};
 
+pub enum Response<'a> {
+    Contained,
+    MoveUp,
+    MoveDown,
+    MoveRight,
+    MoveLeft,
+    Alert(&'a [ElemHandle]),
+}
+
+pub const UP: char = 'k';
+pub const DOWN: char = 'j';
+pub const RIGHT: char = 'l';
+pub const LEFT: char = 'h';
+
 pub trait Element<'a> {
     fn select(&mut self);
 
@@ -18,7 +32,15 @@ pub trait Element<'a> {
         self.advance()
     }
 
-    fn respond(&mut self, _input: char) { }
+    fn respond<'b>(&'b mut self, input: char) -> Response<'b> {
+        match input {
+            UP    => Response::MoveUp,
+            DOWN  => Response::MoveDown,
+            RIGHT => Response::MoveRight,
+            LEFT  => Response::MoveLeft,
+            _     => Response::Contained,
+        }
+    }
 
     fn enter_top(&mut self) {
         self.select()
@@ -34,22 +56,6 @@ pub trait Element<'a> {
 
     fn enter_left(&mut self) {
         self.select()
-    }
-
-    fn move_up(&mut self) -> bool {
-        false
-    }
-
-    fn move_down(&mut self) -> bool {
-        false
-    }
-
-    fn move_right(&mut self) -> bool {
-        false
-    }
-
-    fn move_left(&mut self) -> bool {
-        false
     }
 }
 
@@ -163,6 +169,54 @@ impl<'a> Grid<'a> {
 
         Ok(())
     }
+
+    fn move_up<'b>(&'b mut self) -> Response<'b> {
+        if self.focus().up >= 0 {
+            self.focus_mut().elem.unselect();
+            self.focus = self.focus().up as usize;
+            self.focus_mut().elem.enter_bottom();
+            Response::Contained
+        } else {
+            Response::MoveUp
+        }
+    }
+
+    fn move_down<'b>(&'b mut self) -> Response<'b> {
+        if self.focus().down >= 0 {
+            self.focus_mut().elem.unselect();
+            self.focus = self.focus().down as usize;
+            self.focus_mut().elem.enter_top();
+            Response::Contained
+        } else {
+            Response::MoveDown
+        }
+    }
+
+    fn move_right<'b>(&'b mut self) -> Response<'b> {
+        if self.focus().right >= 0 {
+            self.focus_mut().elem.unselect();
+            self.focus = self.focus().right as usize;
+            self.focus_mut().elem.enter_left();
+            Response::Contained
+        } else {
+            Response::MoveRight
+        }
+    }
+
+    fn move_left<'b>(&'b mut self) -> Response<'b> {
+        if self.focus().left >= 0 {
+            self.focus_mut().elem.unselect();
+            self.focus = self.focus().left as usize;
+            self.focus_mut().elem.enter_right();
+            Response::Contained
+        } else {
+            Response::MoveLeft
+        }
+    }
+
+    fn alert_all(&mut self, _targets: &[ElemHandle]) {
+        // TODO: Implement
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -265,55 +319,20 @@ impl<'a> Element<'a> for Grid<'a> {
         self.focus_mut().elem.enter_left()
     }
 
-    fn move_up(&mut self) -> bool {
-        if self.focus_mut().elem.move_up() {
-            true
-        } else if self.focus().up >= 0 {
-            self.focus_mut().elem.unselect();
-            self.focus = self.focus().up as usize;
-            self.focus_mut().elem.enter_bottom();
-            true
-        } else {
-            false
-        }
-    }
-
-    fn move_down(&mut self) -> bool {
-        if self.focus_mut().elem.move_down() {
-            true
-        } else if self.focus().down >= 0 {
-            self.focus_mut().elem.unselect();
-            self.focus = self.focus().down as usize;
-            self.focus_mut().elem.enter_top();
-            true
-        } else {
-            false
-        }
-    }
-
-    fn move_right(&mut self) -> bool {
-        if self.focus_mut().elem.move_right() {
-            true
-        } else if self.focus().right >= 0 {
-            self.focus_mut().elem.unselect();
-            self.focus = self.focus().right as usize;
-            self.focus_mut().elem.enter_left();
-            true
-        } else {
-            false
-        }
-    }
-
-    fn move_left(&mut self) -> bool {
-        if self.focus_mut().elem.move_left() {
-            true
-        } else if self.focus().left >= 0 {
-            self.focus_mut().elem.unselect();
-            self.focus = self.focus().left as usize;
-            self.focus_mut().elem.enter_right();
-            true
-        } else {
-            false
+    fn respond<'b>(&'b mut self, input: char) -> Response<'b> {
+        let response = unsafe { // TODO: Find a better way to do this maybe
+            (&mut *(self as *mut Grid<'a>)).focus_mut().elem.respond(input)
+        };
+        match response {
+            Response::MoveUp         => self.move_up(),
+            Response::MoveDown       => self.move_down(),
+            Response::MoveRight      => self.move_right(),
+            Response::MoveLeft       => self.move_left(),
+            Response::Contained      => Response::Contained,
+            Response::Alert(targets) => {
+                self.alert_all(targets);
+                Response::Contained
+            },
         }
     }
 }
@@ -368,16 +387,16 @@ mod tests {
         print!("{}", canvas);
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
-        grid.move_down();
+        grid.respond(DOWN);
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
-        grid.move_down();
+        grid.respond(DOWN);
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
-        grid.move_left();
+        grid.respond(LEFT);
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
-        grid.move_right();
+        grid.respond(RIGHT);
         grid.draw_advance(&mut canvas, 0, 0);
         print!("{}", canvas);
     }
