@@ -189,9 +189,9 @@ impl<'a> Grid<'a> {
         ElemHandle(self.elems.len() - 1)
     }
 
-    pub fn connect_up_down(&mut self, up: ElemHandle, down: ElemHandle) -> Result<(), HandleOutOfBounds> {
-        let upper: *mut ElemHolder<'a> = self.elems.get(up.0).ok_or(HandleOutOfBounds(up))? as *const _ as *mut _;
-        let lower: *mut ElemHolder<'a> = self.elems.get(down.0).ok_or(HandleOutOfBounds(down))? as *const _ as *mut _;
+    pub fn connect_up_down(&mut self, up: ElemHandle, down: ElemHandle) -> Result<(), InvalidHandle> {
+        let upper: *mut ElemHolder<'a> = self.elems.get(up.0).ok_or(InvalidHandle(up))? as *const _ as *mut _;
+        let lower: *mut ElemHolder<'a> = self.elems.get(down.0).ok_or(InvalidHandle(down))? as *const _ as *mut _;
         unsafe {
             (&mut *upper).down = down.0 as isize;
             (&mut *lower).up = up.0 as isize;
@@ -200,9 +200,9 @@ impl<'a> Grid<'a> {
         Ok(())
     }
 
-    pub fn connect_left_right(&mut self, left: ElemHandle, right: ElemHandle) -> Result<(), HandleOutOfBounds> {
-        let lefter: *mut ElemHolder<'a> = self.elems.get(left.0).ok_or(HandleOutOfBounds(left))? as *const _ as *mut _;
-        let righter: *mut ElemHolder<'a> = self.elems.get(right.0).ok_or(HandleOutOfBounds(right))? as *const _ as *mut _;
+    pub fn connect_left_right(&mut self, left: ElemHandle, right: ElemHandle) -> Result<(), InvalidHandle> {
+        let lefter: *mut ElemHolder<'a> = self.elems.get(left.0).ok_or(InvalidHandle(left))? as *const _ as *mut _;
+        let righter: *mut ElemHolder<'a> = self.elems.get(right.0).ok_or(InvalidHandle(right))? as *const _ as *mut _;
         unsafe {
             (&mut *lefter).right = right.0 as isize;
             (&mut *righter).left = left.0 as isize;
@@ -261,29 +261,29 @@ impl<'a> Grid<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub struct HandleOutOfBounds(ElemHandle);
+pub struct InvalidHandle(ElemHandle);
 
-impl HandleOutOfBounds {
+impl InvalidHandle {
     pub fn handle(self) -> ElemHandle {
         self.0
     }
 }
 
-impl Error for HandleOutOfBounds {
+impl Error for InvalidHandle {
     fn description(&self) -> &str {
         "An element handle was invalid for the element grid on which it was used"
     }
 }
 
-impl Debug for HandleOutOfBounds {
+impl Debug for InvalidHandle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "HandleOutOfBounds")
+        write!(f, "InvalidHandle")
     }
 }
 
-impl Display for HandleOutOfBounds {
+impl Display for InvalidHandle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "HandleOutOfBounds")
+        write!(f, "InvalidHandle")
     }
 }
 
