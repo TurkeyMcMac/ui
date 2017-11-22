@@ -164,6 +164,14 @@ impl<'a> Grid<'a> {
         grid
     }
 
+    pub fn draw(&self, canvas: &mut Canvas) {
+        Element::draw(self, canvas, 0, 0, true);
+    }
+
+    pub fn draw_advance(&mut self, canvas: &mut Canvas) {
+        Element::draw_advance(self, canvas, 0, 0, true);
+    }
+
     fn focus(&self) -> &ElemHolder<'a> {
         unsafe {
             self.elems.get_unchecked(self.focus)
@@ -395,19 +403,19 @@ mod tests {
         grid.connect_left_right(top, middle).unwrap();
         grid.connect_left_right(middle, bottom).unwrap();
         let mut canvas = Canvas::new(10, 10, ' ');
-        grid.draw_advance(&mut canvas, 0, 0, true);
+        grid.draw_advance(&mut canvas);
         print!("{}", canvas);
         grid.respond(DOWN);
-        grid.draw_advance(&mut canvas, 0, 0, true);
+        grid.draw_advance(&mut canvas);
         print!("{}", canvas);
         grid.respond(UP);
-        grid.draw_advance(&mut canvas, 0, 0, true);
+        grid.draw_advance(&mut canvas);
         print!("{}", canvas);
         grid.respond(DOWN);
-        grid.draw_advance(&mut canvas, 0, 0, true);
+        grid.draw_advance(&mut canvas);
         print!("{}", canvas);
         grid.respond(UP);
-        grid.draw_advance(&mut canvas, 0, 0, true);
+        grid.draw_advance(&mut canvas);
         print!("{}", canvas);
     }
 }
