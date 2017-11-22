@@ -140,8 +140,8 @@ impl<'a> Element<'a> for Text<'a> {
 }
 
 pub struct Grid<'a> {
-    pub elems: Vec<ElemHolder<'a>>,
-    pub focus: usize,
+    elems: Vec<ElemHolder<'a>>,
+    focus: usize,
 }
 
 const TL_IDX: usize = 0; // Index of top left element
