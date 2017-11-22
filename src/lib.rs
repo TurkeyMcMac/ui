@@ -48,9 +48,7 @@ pub trait Element<'a> {
 
     fn enter_left(&mut self) { }
 
-    fn alert(&mut self) -> Option<&[ElemHandle]> {
-        None
-    }
+    fn alert(&mut self) { }
 }
 
 pub struct Updater<'a, E>
@@ -117,7 +115,7 @@ impl<'a, E> Element<'a> for Updater<'a, E>
         self.inner.enter_left()
     }
 
-    fn alert(&mut self) -> Option<&[ElemHandle]> {
+    fn alert(&mut self) {
         self.updated = true;
         self.inner.alert()
     }
@@ -255,11 +253,8 @@ impl<'a> Grid<'a> {
 
     fn alert_all(&mut self, targets: &[ElemHandle]) {
         for t in targets {
-            if let Some(targets) = unsafe { // TODO: Do this a better way
-                (&mut *(&self.elems as *const _ as *mut Vec<ElemHolder<'a>>))
-            }.get_mut(t.0).and_then(|e| e.elem.alert())
-            {
-                self.alert_all(targets);
+            if let Some(e) = self.elems.get_mut(t.0) {
+                e.elem.alert()
             }
         }
     }
