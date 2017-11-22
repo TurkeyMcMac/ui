@@ -1,10 +1,10 @@
+pub mod canvas;
+use canvas::Canvas;
+pub mod util;
+
 use std::borrow::BorrowMut;
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
-use std::marker::PhantomData;
-
-mod canvas;
-use canvas::{Canvas, TextStyles};
 
 pub enum Response<'a> {
     Nothing,
@@ -52,94 +52,6 @@ pub trait Element<'a> {
     fn alert(&mut self) { }
 }
 
-pub struct Updater<'a, E>
-    where E: Element<'a>
-{
-    inner: E,
-    updated: bool,
-    _a: PhantomData<&'a ()>,
-}
-
-impl<'a, E> Updater<'a, E>
-    where E: Element<'a>
-{
-    pub fn new(elem: E) -> Updater<'a, E> {
-        Updater {
-            inner: elem,
-            updated: true,
-            _a: PhantomData,
-        }
-    }
-}
-
-impl<'a, E> Element<'a> for Updater<'a, E>
-    where E: Element<'a>
-{
-    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
-        if self.updated {
-            self.inner.draw(canvas, x, y, selected)
-        }
-    }
-
-    fn advance(&mut self) {
-        self.inner.advance();
-        self.updated = false
-    }
-
-    fn respond<'b>(&'b mut self, input: char) -> Response<'b> {
-        match self.inner.respond(input) {
-            Response::Nothing => Response::Nothing,
-            r => {
-                self.updated = true;
-                r
-            }
-        }
-    }
-
-    fn enter_top(&mut self) {
-        self.updated = true;
-        self.inner.enter_top()
-    }
-
-    fn enter_bottom(&mut self) {
-        self.updated = true;
-        self.inner.enter_bottom()
-    }
-
-    fn enter_right(&mut self) {
-        self.updated = true;
-        self.inner.enter_right()
-    }
-
-    fn enter_left(&mut self) {
-        self.updated = true;
-        self.inner.enter_left()
-    }
-
-    fn alert(&mut self) {
-        self.updated = true;
-        self.inner.alert()
-    }
-}
-
-pub struct Text<'a> {
-    inner: &'a str,
-}
-
-impl<'a> Text<'a> {
-    pub fn new(text: &'a str) -> Text<'a> {
-        Text {
-            inner: text,
-        }
-    }
-}
-
-impl<'a> Element<'a> for Text<'a> {
-    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
-        canvas.text(self.inner, x, y, TextStyles::new().inverse(selected))
-    }
-}
-
 pub struct Grid<'a> {
     elems: Vec<ElemHolder<'a>>,
     focus: usize,
@@ -153,7 +65,7 @@ impl<'a> Grid<'a> {
                          br: Box<Element<'a> + 'a>, br_x: usize, br_y: usize,
                          cap: usize)
     -> Grid<'a> {
-        let mut grid = Grid {
+        Grid {
             elems: {
                 let mut elems = Vec::with_capacity(cap + 2);
                 elems.push(ElemHolder::new(tl, tl_x, tl_y));
@@ -161,8 +73,7 @@ impl<'a> Grid<'a> {
                 elems
             },
             focus: TL_IDX,
-        };
-        grid
+        }
     }
 
     pub fn draw(&self, canvas: &mut Canvas) {
@@ -299,7 +210,7 @@ impl Display for InvalidHandle {
 #[derive(Clone, Copy)]
 pub struct ElemHandle(usize);
 
-pub struct ElemHolder<'a> {
+struct ElemHolder<'a> {
     elem: Box<Element<'a> + 'a>,
     x: usize,
     y: usize,
@@ -310,7 +221,7 @@ pub struct ElemHolder<'a> {
 }
 
 impl<'a> ElemHolder<'a> {
-    pub fn new(elem: Box<Element<'a> + 'a>, x: usize, y: usize) -> ElemHolder<'a> {
+    fn new(elem: Box<Element<'a> + 'a>, x: usize, y: usize) -> ElemHolder<'a> {
         ElemHolder {
             elem, x, y,
             up: -1,
@@ -401,43 +312,6 @@ impl<'a> Element<'a> for Grid<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    struct Counter<'a> {
-        count: &'a mut u32,
-    }
-
-    impl<'a> Element<'a> for Counter<'a> {
-        fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
-            canvas.text(&self.count.to_string(), x, y, TextStyles::new().inverse(selected))
-        }
-    }
-
     #[test]
-    fn it_works() {
-        let mut counter = 1000;
-        let count: &mut u32 = &mut counter;
-        let mut grid = Grid::with_capacity(Box::new(Updater::new(Text::new("\nf\no\n\no"))), 0, 0, Box::new(Updater::new(Text::new("baz"))), 3, 3, 10);
-        let top = grid.top_left();
-        let bottom = grid.bottom_right();
-        let middle = grid.add_elem(Box::new(Updater::new(Counter { count })), 2, 2);
-        grid.connect_up_down(top, middle).unwrap();
-        grid.connect_up_down(middle, bottom).unwrap();
-        grid.connect_left_right(top, middle).unwrap();
-        grid.connect_left_right(middle, bottom).unwrap();
-        let mut canvas = Canvas::new(10, 10, ' ');
-        grid.draw_advance(&mut canvas);
-        print!("{}", canvas);
-        grid.respond(DOWN);
-        grid.draw_advance(&mut canvas);
-        print!("{}", canvas);
-        grid.respond(UP);
-        grid.draw_advance(&mut canvas);
-        print!("{}", canvas);
-        grid.respond(DOWN);
-        grid.draw_advance(&mut canvas);
-        print!("{}", canvas);
-        grid.respond(UP);
-        grid.draw_advance(&mut canvas);
-        print!("{}", canvas);
-    }
+    fn it_works() {}
 }
