@@ -1,10 +1,12 @@
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::marker::PhantomData;
 
 mod canvas;
 use canvas::{Canvas, TextStyles};
 
 pub enum Response<'a> {
+    Nothing,
     Contained,
     MoveUp,
     MoveDown,
@@ -19,16 +21,12 @@ pub const RIGHT: char = 'l';
 pub const LEFT: char = 'h';
 
 pub trait Element<'a> {
-    fn select(&mut self);
+    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool);
 
-    fn unselect(&mut self);
+    fn advance(&mut self) { }
 
-    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize);
-
-    fn advance(&mut self);
-
-    fn draw_advance(&mut self, canvas: &mut Canvas, x: usize, y: usize) {
-        self.draw(canvas, x, y);
+    fn draw_advance(&mut self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
+        self.draw(canvas, x, y, selected);
         self.advance()
     }
 
@@ -38,66 +36,108 @@ pub trait Element<'a> {
             DOWN  => Response::MoveDown,
             RIGHT => Response::MoveRight,
             LEFT  => Response::MoveLeft,
-            _     => Response::Contained,
+            _     => Response::Nothing,
         }
     }
 
-    fn enter_top(&mut self) {
-        self.select()
-    }
+    fn enter_top(&mut self) { }
 
-    fn enter_bottom(&mut self) {
-        self.select()
-    }
+    fn enter_bottom(&mut self) { }
 
-    fn enter_right(&mut self) {
-        self.select()
-    }
+    fn enter_right(&mut self) { }
 
-    fn enter_left(&mut self) {
-        self.select()
-    }
+    fn enter_left(&mut self) { }
 
     fn alert(&mut self) -> Option<&[ElemHandle]> {
         None
     }
 }
 
+pub struct Updater<'a, E>
+    where E: Element<'a>
+{
+    inner: E,
+    updated: bool,
+    _a: PhantomData<&'a ()>,
+}
+
+impl<'a, E> Updater<'a, E>
+    where E: Element<'a>
+{
+    pub fn new(elem: E) -> Updater<'a, E> {
+        Updater {
+            inner: elem,
+            updated: true,
+            _a: PhantomData,
+        }
+    }
+}
+
+impl<'a, E> Element<'a> for Updater<'a, E>
+    where E: Element<'a>
+{
+    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
+        if self.updated {
+            self.inner.draw(canvas, x, y, selected)
+        }
+    }
+
+    fn advance(&mut self) {
+        self.inner.advance();
+        self.updated = false
+    }
+
+    fn respond<'b>(&'b mut self, input: char) -> Response<'b> {
+        match self.inner.respond(input) {
+            Response::Nothing => Response::Nothing,
+            r => {
+                self.updated = true;
+                r
+            }
+        }
+    }
+
+    fn enter_top(&mut self) {
+        self.updated = true;
+        self.inner.enter_top()
+    }
+
+    fn enter_bottom(&mut self) {
+        self.updated = true;
+        self.inner.enter_bottom()
+    }
+
+    fn enter_right(&mut self) {
+        self.updated = true;
+        self.inner.enter_right()
+    }
+
+    fn enter_left(&mut self) {
+        self.updated = true;
+        self.inner.enter_left()
+    }
+
+    fn alert(&mut self) -> Option<&[ElemHandle]> {
+        self.updated = true;
+        self.inner.alert()
+    }
+}
+
 pub struct Text<'a> {
     inner: &'a str,
-    selected: bool,
-    updated: bool,
 }
 
 impl<'a> Text<'a> {
     pub fn new(text: &'a str) -> Text<'a> {
         Text {
             inner: text,
-            selected: false,
-            updated: true,
         }
     }
 }
 
 impl<'a> Element<'a> for Text<'a> {
-    fn select(&mut self) {
-        self.selected = true;
-        self.updated = true
-    }
-
-    fn unselect(&mut self) {
-        self.selected = false;
-        self.updated = true
-    }
-
-    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize) {
-        if self.updated {
-            canvas.text(self.inner, x, y, TextStyles::new().inverse(self.selected))
-        }
-    }
-
-    fn advance(&mut self) {
-        self.updated = false
+    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
+        canvas.text(self.inner, x, y, TextStyles::new().inverse(selected))
     }
 }
 
@@ -123,7 +163,6 @@ impl<'a> Grid<'a> {
             },
             focus: TL_IDX,
         };
-        grid.focus_mut().elem.select();
         grid
     }
 
@@ -176,9 +215,8 @@ impl<'a> Grid<'a> {
 
     fn move_up<'b>(&'b mut self) -> Response<'b> {
         if self.focus().up >= 0 {
-            self.focus_mut().elem.unselect();
             self.focus = self.focus().up as usize;
-            self.focus_mut().elem.enter_bottom();
+            self.focus_mut().elem.enter_top();
             Response::Contained
         } else {
             Response::MoveUp
@@ -187,9 +225,8 @@ impl<'a> Grid<'a> {
 
     fn move_down<'b>(&'b mut self) -> Response<'b> {
         if self.focus().down >= 0 {
-            self.focus_mut().elem.unselect();
             self.focus = self.focus().down as usize;
-            self.focus_mut().elem.enter_top();
+            self.focus_mut().elem.enter_bottom();
             Response::Contained
         } else {
             Response::MoveDown
@@ -198,9 +235,8 @@ impl<'a> Grid<'a> {
 
     fn move_right<'b>(&'b mut self) -> Response<'b> {
         if self.focus().right >= 0 {
-            self.focus_mut().elem.unselect();
             self.focus = self.focus().right as usize;
-            self.focus_mut().elem.enter_left();
+            self.focus_mut().elem.enter_right();
             Response::Contained
         } else {
             Response::MoveRight
@@ -209,9 +245,8 @@ impl<'a> Grid<'a> {
 
     fn move_left<'b>(&'b mut self) -> Response<'b> {
         if self.focus().left >= 0 {
-            self.focus_mut().elem.unselect();
             self.focus = self.focus().left as usize;
-            self.focus_mut().elem.enter_right();
+            self.focus_mut().elem.enter_left();
             Response::Contained
         } else {
             Response::MoveLeft
@@ -283,18 +318,9 @@ impl<'a> ElemHolder<'a> {
 }
 
 impl<'a> Element<'a> for Grid<'a> {
-    fn select(&mut self) {
-        self.focus = TL_IDX;
-        self.focus_mut().elem.select()
-    }
-
-    fn unselect(&mut self) {
-        self.focus_mut().elem.unselect()
-    }
-
-    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize) {
-        for &ElemHolder { ref elem, x: elem_x, y: elem_y, .. } in &self.elems {
-            elem.draw(canvas, x + elem_x, y + elem_y)
+    fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
+        for (i, &ElemHolder { ref elem, x: elem_x, y: elem_y, .. }) in self.elems.iter().enumerate() {
+            elem.draw(canvas, x + elem_x, y + elem_y, i == self.focus && selected)
         }
     }
 
@@ -304,9 +330,9 @@ impl<'a> Element<'a> for Grid<'a> {
         }
     }
 
-    fn draw_advance(&mut self, canvas: &mut Canvas, x: usize, y: usize) {
-        for &mut ElemHolder { ref mut elem, x: elem_x, y: elem_y, .. } in &mut self.elems {
-            elem.draw_advance(canvas, x + elem_x, y + elem_y)
+    fn draw_advance(&mut self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
+        for (i, &mut ElemHolder { ref mut elem, x: elem_x, y: elem_y, .. }) in self.elems.iter_mut().enumerate() {
+            elem.draw_advance(canvas, x + elem_x, y + elem_y, i == self.focus && selected)
         }
     }
 
@@ -339,11 +365,11 @@ impl<'a> Element<'a> for Grid<'a> {
             Response::MoveDown       => self.move_down(),
             Response::MoveRight      => self.move_right(),
             Response::MoveLeft       => self.move_left(),
-            Response::Contained      => Response::Contained,
             Response::Alert(targets) => {
                 self.alert_all(targets);
                 Response::Contained
             },
+            r => r,
         }
     }
 }
@@ -353,31 +379,11 @@ mod tests {
     use super::*;
     struct Counter<'a> {
         count: &'a mut u32,
-        selected: bool,
-        updated: bool,
     }
 
     impl<'a> Element<'a> for Counter<'a> {
-        fn select(&mut self) {
-            *self.count += 2;
-            self.selected = true;
-            self.updated = true
-        }
-
-        fn unselect(&mut self) {
-            *self.count -= 1;
-            self.selected = false;
-            self.updated = true
-        }
-
-        fn draw(&self, canvas: &mut Canvas, x: usize, y: usize) {
-            if self.updated {
-                canvas.text(&self.count.to_string(), x, y, TextStyles::new().inverse(self.selected))
-            }
-        }
-
-        fn advance(&mut self) {
-            self.updated = false
+        fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
+            canvas.text(&self.count.to_string(), x, y, TextStyles::new().inverse(selected))
         }
     }
 
@@ -385,30 +391,28 @@ mod tests {
     fn it_works() {
         let mut counter = 1000;
         let count: &mut u32 = &mut counter;
-        let mut grid = Grid::with_capacity(Box::new(Text::new("foo")), 1, 1, Box::new(Text::new("baz")), 3, 3, 10);
+        let mut grid = Grid::with_capacity(Box::new(Updater::new(Text::new("foo"))), 1, 1, Box::new(Updater::new(Text::new("baz"))), 3, 3, 10);
         let top = grid.top_left();
         let bottom = grid.bottom_right();
-        let middle = grid.add_elem(Box::new(Counter { count, selected: false, updated: true }), 2, 2);
+        let middle = grid.add_elem(Box::new(Updater::new(Counter { count })), 2, 2);
         grid.connect_up_down(top, middle).unwrap();
         grid.connect_up_down(middle, bottom).unwrap();
         grid.connect_left_right(top, middle).unwrap();
         grid.connect_left_right(middle, bottom).unwrap();
         let mut canvas = Canvas::new(10, 10, ' ');
-        grid.draw_advance(&mut canvas, 0, 0);
-        print!("{}", canvas);
-        grid.draw_advance(&mut canvas, 0, 0);
+        grid.draw_advance(&mut canvas, 0, 0, true);
         print!("{}", canvas);
         grid.respond(DOWN);
-        grid.draw_advance(&mut canvas, 0, 0);
+        grid.draw_advance(&mut canvas, 0, 0, true);
+        print!("{}", canvas);
+        grid.respond(UP);
+        grid.draw_advance(&mut canvas, 0, 0, true);
         print!("{}", canvas);
         grid.respond(DOWN);
-        grid.draw_advance(&mut canvas, 0, 0);
+        grid.draw_advance(&mut canvas, 0, 0, true);
         print!("{}", canvas);
-        grid.respond(LEFT);
-        grid.draw_advance(&mut canvas, 0, 0);
-        print!("{}", canvas);
-        grid.respond(RIGHT);
-        grid.draw_advance(&mut canvas, 0, 0);
+        grid.respond(UP);
+        grid.draw_advance(&mut canvas, 0, 0, true);
         print!("{}", canvas);
     }
 }
