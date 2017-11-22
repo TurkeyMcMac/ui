@@ -43,31 +43,38 @@ impl Canvas {
     }
 
     pub fn text(&mut self, text: &str, x: usize, y: usize, styles: TextStyles) {
-        let mut current_x = x; let mut current_y = y;
-        
-        let mut in_bounds = x < self.width && y < self.height;
+        const CLEAR_OFF_SETTINGS: u8 = !0 >> 4;
+        const CLEAR_ON_SETTINGS: u8 = !0 << 4;
 
-        if in_bounds {
-            unsafe {
-                self.get_unchecked_mut(current_x, current_y).flags = styles.inner;
-            }
+        let mut current_x = x; let mut current_y = y;
+        if x >= self.width || y >= self.height {
+            return;
+        }
+        let mut in_bounds = true;
+        let mut last_x = x; let mut last_y = y;
+
+        unsafe {
+            self.get_unchecked_mut(current_x, current_y).flags &= CLEAR_ON_SETTINGS;
+            self.get_unchecked_mut(current_x, current_y).flags |= styles.inner;
         }
 
         for letter in text.chars() {
             match letter {
                 '\n' => {
-                    if in_bounds {
-                        unsafe {
-                            self.get_unchecked_mut(current_x, current_y).flags = styles.inner << 4;
-                        }
+                    unsafe {
+                        self.get_unchecked_mut(current_x, current_y).flags &= CLEAR_OFF_SETTINGS;
+                        self.get_unchecked_mut(last_x, last_y).flags |= styles.inner << 4;
                     }
                     current_x = x;
                     current_y += 1;
                     in_bounds = current_x < self.width && current_y < self.height;
                     if in_bounds {
                         unsafe {
-                            self.get_unchecked_mut(current_x, current_y).flags = styles.inner;
+                            self.get_unchecked_mut(current_x, current_y).flags &= CLEAR_ON_SETTINGS;
+                            self.get_unchecked_mut(current_x, current_y).flags |= styles.inner;
                         }
+                        last_x = current_x;
+                        last_y = current_y;
                     }
                 },
                 letter => {
@@ -75,6 +82,8 @@ impl Canvas {
                         unsafe {
                             self.get_unchecked_mut(current_x, current_y).ch = letter;
                         }
+                        last_x = current_x;
+                        last_y = current_y;
                         current_x += 1;
                         in_bounds = self.width > current_x;
                     }
@@ -82,11 +91,9 @@ impl Canvas {
             }
         }
 
-        if in_bounds {
-            if current_x > x { current_x -= 1 }
-            unsafe {
-                self.get_unchecked_mut(current_x, current_y).flags = styles.inner << 4
-            }
+        unsafe {
+            self.get_unchecked_mut(current_x, current_y).flags &= CLEAR_OFF_SETTINGS;
+            self.get_unchecked_mut(last_x, last_y).flags |= styles.inner << 4
         }
     }
 }

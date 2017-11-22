@@ -391,7 +391,7 @@ mod tests {
     fn it_works() {
         let mut counter = 1000;
         let count: &mut u32 = &mut counter;
-        let mut grid = Grid::with_capacity(Box::new(Updater::new(Text::new("foo"))), 1, 1, Box::new(Updater::new(Text::new("baz"))), 3, 3, 10);
+        let mut grid = Grid::with_capacity(Box::new(Updater::new(Text::new("\nf\no\n\no"))), 0, 0, Box::new(Updater::new(Text::new("baz"))), 3, 3, 10);
         let top = grid.top_left();
         let bottom = grid.bottom_right();
         let middle = grid.add_elem(Box::new(Updater::new(Counter { count })), 2, 2);
