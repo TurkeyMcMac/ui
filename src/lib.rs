@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -360,19 +361,40 @@ impl<'a> Element<'a> for Grid<'a> {
     }
 
     fn respond<'b>(&'b mut self, input: char) -> Response<'b> {
-        let response = unsafe { // TODO: Find a better way to do this maybe
-            (&mut *(self as *mut Grid<'a>)).focus_mut().elem.respond(input)
-        };
-        match response {
-            Response::MoveUp         => self.move_up(),
-            Response::MoveDown       => self.move_down(),
-            Response::MoveRight      => self.move_right(),
-            Response::MoveLeft       => self.move_left(),
-            Response::Alert(targets) => {
-                self.alert_all(targets);
+        let response = respond_raw_ptr(self.focus_mut().elem.borrow_mut(), input);
+        return match response {
+            RawPtrResponse::Contained => Response::Contained,
+            RawPtrResponse::Nothing   => Response::Nothing,
+            RawPtrResponse::MoveUp    => self.move_up(),
+            RawPtrResponse::MoveDown  => self.move_down(),
+            RawPtrResponse::MoveRight => self.move_right(),
+            RawPtrResponse::MoveLeft  => self.move_left(),
+            RawPtrResponse::Alert(a)  => {
+                self.alert_all(unsafe { &*a });
                 Response::Contained
             },
-            r => r,
+        };
+
+        enum RawPtrResponse {
+            Nothing,
+            Contained,
+            MoveUp,
+            MoveDown,
+            MoveRight,
+            MoveLeft,
+            Alert(*const [ElemHandle]),
+        }
+
+        fn respond_raw_ptr<'a, 'b>(this: &'b mut (Element<'a> + 'a), input: char) -> RawPtrResponse {
+            match this.respond(input) {
+                Response::Nothing   => RawPtrResponse::Nothing,
+                Response::Contained => RawPtrResponse::Contained,
+                Response::MoveUp    => RawPtrResponse::MoveUp,
+                Response::MoveDown  => RawPtrResponse::MoveDown,
+                Response::MoveRight => RawPtrResponse::MoveRight,
+                Response::MoveLeft  => RawPtrResponse::MoveLeft,
+                Response::Alert(a)  => RawPtrResponse::Alert(a),
+            }
         }
     }
 }
