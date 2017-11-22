@@ -43,9 +43,6 @@ impl Canvas {
     }
 
     pub fn text(&mut self, text: &str, x: usize, y: usize, styles: TextStyles) {
-        const CLEAR_OFF_SETTINGS: u8 = !0 >> 4;
-        const CLEAR_ON_SETTINGS: u8 = !0 << 4;
-
         let mut current_x = x; let mut current_y = y;
         if x >= self.width || y >= self.height {
             return;
@@ -54,24 +51,21 @@ impl Canvas {
         let mut last_x = x; let mut last_y = y;
 
         unsafe {
-            self.get_unchecked_mut(current_x, current_y).flags &= CLEAR_ON_SETTINGS;
-            self.get_unchecked_mut(current_x, current_y).flags |= styles.inner;
+            set_styles_on(self.get_unchecked_mut(current_x, current_y), styles);
         }
 
         for letter in text.chars() {
             match letter {
                 '\n' => {
                     unsafe {
-                        self.get_unchecked_mut(current_x, current_y).flags &= CLEAR_OFF_SETTINGS;
-                        self.get_unchecked_mut(last_x, last_y).flags |= styles.inner << 4;
+                        set_styles_off(self.get_unchecked_mut(last_x, last_y), styles);
                     }
                     current_x = x;
                     current_y += 1;
                     in_bounds = current_x < self.width && current_y < self.height;
                     if in_bounds {
                         unsafe {
-                            self.get_unchecked_mut(current_x, current_y).flags &= CLEAR_ON_SETTINGS;
-                            self.get_unchecked_mut(current_x, current_y).flags |= styles.inner;
+                            set_styles_on(self.get_unchecked_mut(current_x, current_y), styles);
                         }
                         last_x = current_x;
                         last_y = current_y;
@@ -92,10 +86,39 @@ impl Canvas {
         }
 
         unsafe {
-            self.get_unchecked_mut(current_x, current_y).flags &= CLEAR_OFF_SETTINGS;
-            self.get_unchecked_mut(last_x, last_y).flags |= styles.inner << 4
+            set_styles_off(self.get_unchecked_mut(last_x, last_y), styles);
         }
     }
+
+    pub fn line(&mut self, fill: char, x: usize, y: usize, len: usize, styles: TextStyles) {
+        if x >= self.width || y >= self.height || len == 0 {
+            return;
+        }
+        let len = if x + len >= self.width {
+            self.width - x
+        } else {
+            len
+        };
+
+        for p in &mut self.pixels[y * self.width + x .. y * self.width + x + len] {
+            p.ch = fill
+        }
+
+        unsafe {
+            set_styles_on(self.get_unchecked_mut(x, y), styles);
+            set_styles_off(self.get_unchecked_mut(x + len - 1, y), styles)
+        }
+    }
+}
+
+fn set_styles_on(pixel: &mut Pixel, styles: TextStyles) {
+    pixel.flags &= !0 << 4;
+    pixel.flags |= styles.inner;
+}
+
+fn set_styles_off(pixel: &mut Pixel, styles: TextStyles) {
+    pixel.flags &= !0 >> 4;
+    pixel.flags |= styles.inner << 4;
 }
 
 impl Display for Canvas {
@@ -111,6 +134,7 @@ impl Display for Canvas {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TextStyles {
     inner: u8,
 }
@@ -219,6 +243,13 @@ mod tests {
     fn newlines_work() {
         let mut c = Canvas::new(10, 10, '#');
         c.text("\nfoo\n\nbar\n", 1, 1, TextStyles::new().underline(true));
+        println!("{}", c);
+    }
+
+    #[test]
+    fn lines_work() {
+        let mut c = Canvas::new(10, 10, '#');
+        c.line('-', 1, 2, 11, TextStyles::new().inverse(true));
         println!("{}", c);
     }
 }
