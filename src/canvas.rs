@@ -196,3 +196,29 @@ impl TextStyles {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn out_of_bounds_works() {
+        let mut c = Canvas::new(10, 10, '#');
+        c.text("foo", 12, 12, TextStyles::new().underline(true));
+        println!("{}", c);
+    }
+
+    #[test]
+    fn overflowing_text_works() {
+        let mut c = Canvas::new(10, 10, '#');
+        c.text("foo", 8, 1, TextStyles::new().underline(true));
+        println!("{}", c);
+    }
+
+    #[test]
+    fn newlines_work() {
+        let mut c = Canvas::new(10, 10, '#');
+        c.text("\nfoo\n\nbar\n", 1, 1, TextStyles::new().underline(true));
+        println!("{}", c);
+    }
+}

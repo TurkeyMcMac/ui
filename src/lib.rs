@@ -4,8 +4,9 @@ pub mod util;
 
 use std::borrow::BorrowMut;
 use std::error::Error;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Display, Formatter};
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Response<'a> {
     Nothing,
     Contained,
@@ -180,7 +181,7 @@ impl<'a> Grid<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct InvalidHandle(ElemHandle);
 
 impl InvalidHandle {
@@ -195,19 +196,13 @@ impl Error for InvalidHandle {
     }
 }
 
-impl Debug for InvalidHandle {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "InvalidHandle")
-    }
-}
-
 impl Display for InvalidHandle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "InvalidHandle")
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ElemHandle(usize);
 
 struct ElemHolder<'a> {
@@ -312,6 +307,29 @@ impl<'a> Element<'a> for Grid<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use canvas::TextStyles;
+
+    use std::marker::PhantomData;
+
     #[test]
-    fn it_works() {}
+    fn grid_movement_works() {
+        struct Foo<'a> {
+            _a: PhantomData<&'a ()>,
+        }
+
+        impl<'a> Element<'a> for Foo<'a> {
+            fn draw(&self, canvas: &mut Canvas, x: usize, y: usize, selected: bool) {
+                canvas.text("foo", x, y, TextStyles::new().italics(selected))
+            }
+        }
+
+        let mut grid = Grid::with_capacity(Box::new(Foo { _a: PhantomData }), 0, 0, Box::new(Foo { _a: PhantomData }), 5, 5, 2);
+        let top = grid.top_left();
+        let bottom = grid.bottom_right();
+        assert!(grid.connect_up_down(top, bottom).is_ok());
+        assert_eq!(grid.respond(DOWN), Response::Contained);
+        assert_eq!(grid.respond(DOWN), Response::MoveDown);
+        assert_eq!(grid.respond('?'), Response::Nothing);
+    }
 }
