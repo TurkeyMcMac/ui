@@ -51,21 +51,21 @@ impl Canvas {
         let mut last_x = x; let mut last_y = y;
 
         unsafe {
-            set_styles_on(self.get_unchecked_mut(current_x, current_y), styles);
+            self.get_unchecked_mut(current_x, current_y).set_styles_on(styles);
         }
 
         for letter in text.chars() {
             match letter {
                 '\n' => {
                     unsafe {
-                        set_styles_off(self.get_unchecked_mut(last_x, last_y), styles);
+                        self.get_unchecked_mut(last_x, last_y).set_styles_off(styles);
                     }
                     current_x = x;
                     current_y += 1;
                     in_bounds = current_x < self.width && current_y < self.height;
                     if in_bounds {
                         unsafe {
-                            set_styles_on(self.get_unchecked_mut(current_x, current_y), styles);
+                            self.get_unchecked_mut(current_x, current_y).set_styles_on(styles);
                         }
                         last_x = current_x;
                         last_y = current_y;
@@ -86,7 +86,7 @@ impl Canvas {
         }
 
         unsafe {
-            set_styles_off(self.get_unchecked_mut(last_x, last_y), styles);
+            self.get_unchecked_mut(last_x, last_y).set_styles_off(styles);
         }
     }
 
@@ -105,20 +105,10 @@ impl Canvas {
         }
 
         unsafe {
-            set_styles_on(self.get_unchecked_mut(x, y), styles);
-            set_styles_off(self.get_unchecked_mut(x + len - 1, y), styles)
+            self.get_unchecked_mut(x, y).set_styles_on(styles);
+            self.get_unchecked_mut(x + len - 1, y).set_styles_off(styles)
         }
     }
-}
-
-fn set_styles_on(pixel: &mut Pixel, styles: TextStyles) {
-    pixel.flags &= !0 << 4;
-    pixel.flags |= styles.inner;
-}
-
-fn set_styles_off(pixel: &mut Pixel, styles: TextStyles) {
-    pixel.flags &= !0 >> 4;
-    pixel.flags |= styles.inner << 4;
 }
 
 impl Display for Canvas {
@@ -157,6 +147,18 @@ const INVERSE_OFF: u8 = 1 << (INVERSE_POS + 4);
 pub struct Pixel {
     pub ch: char,
     pub flags: u8,
+}
+
+impl Pixel {
+    pub fn set_styles_on(&mut self, styles: TextStyles) {
+        self.flags &= !0 << 4;
+        self.flags |= styles.inner;
+    }
+
+    pub fn set_styles_off(&mut self, styles: TextStyles) {
+        self.flags &= !0 >> 4;
+        self.flags |= styles.inner << 4;
+    }
 }
 
 impl Display for Pixel {
