@@ -155,8 +155,8 @@ const INVERSE_OFF: u8 = 1 << (INVERSE_POS + 4);
 
 #[derive(Clone, Copy)]
 pub struct Pixel {
-    ch: char,
-    flags: u8,
+    pub ch: char,
+    pub flags: u8,
 }
 
 impl Display for Pixel {
